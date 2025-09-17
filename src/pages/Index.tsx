@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -7,11 +7,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Icon from '@/components/ui/icon';
+import TradingChart from '@/components/TradingChart';
+import LiveDataIndicator from '@/components/LiveDataIndicator';
+import { useMEXCWebSocket, useBitgetWebSocket } from '@/hooks/useWebSocket';
 
 const Index = () => {
   const [selectedExchange, setSelectedExchange] = useState('MEXC');
   const [selectedTimeframe, setSelectedTimeframe] = useState('1h');
   const [searchToken, setSearchToken] = useState('');
+  const [selectedSymbol, setSelectedSymbol] = useState('DOGE/USDT');
+  const [liveData, setLiveData] = useState<any>(null);
+
+  // WebSocket connections
+  const mexcWs = useMEXCWebSocket('DOGEUSDT');
+  const bitgetWs = useBitgetWebSocket('DOGEUSDT');
+  
+  const currentWs = selectedExchange === 'MEXC' ? mexcWs : bitgetWs;
 
   // Mock data for demonstration
   const watchlistTokens = [
@@ -73,9 +84,12 @@ const Index = () => {
                 <SelectItem value="Bitget">Bitget</SelectItem>
               </SelectContent>
             </Select>
-            <Badge variant="outline" className="border-terminal-green text-terminal-green">
-              {selectedExchange} Подключен
-            </Badge>
+            <LiveDataIndicator
+              isConnected={currentWs.isConnected}
+              exchange={selectedExchange}
+              data={currentWs.data}
+              error={currentWs.error}
+            />
           </div>
         </div>
       </header>
@@ -84,73 +98,13 @@ const Index = () => {
         {/* Search and Chart Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Chart */}
-          <Card className="lg:col-span-2 bg-terminal-card border-terminal-border">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-white">График DOGE/USDT</CardTitle>
-                <div className="flex items-center space-x-2">
-                  <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
-                    <SelectTrigger className="w-20 bg-terminal-bg border-terminal-border">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1m">1м</SelectItem>
-                      <SelectItem value="5m">5м</SelectItem>
-                      <SelectItem value="15m">15м</SelectItem>
-                      <SelectItem value="1h">1ч</SelectItem>
-                      <SelectItem value="4h">4ч</SelectItem>
-                      <SelectItem value="1d">1д</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Mock Chart Area */}
-              <div className="h-80 bg-terminal-bg rounded-lg border border-terminal-border flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 opacity-20">
-                  {/* Candlestick simulation */}
-                  <div className="flex items-end justify-center h-full px-4 space-x-1">
-                    {Array.from({ length: 50 }).map((_, i) => {
-                      const height = Math.random() * 60 + 20;
-                      const isGreen = Math.random() > 0.5;
-                      return (
-                        <div
-                          key={i}
-                          className={`w-2 ${isGreen ? 'bg-terminal-green' : 'bg-terminal-red'} opacity-60`}
-                          style={{ height: `${height}%` }}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="text-center z-10">
-                  <Icon name="TrendingUp" size={48} className="text-terminal-green mx-auto mb-2" />
-                  <p className="text-gray-400">График загружается...</p>
-                </div>
-              </div>
-              
-              {/* Price Info */}
-              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-gray-400 text-sm">Цена</p>
-                  <p className="text-xl font-mono text-white">$0.08234</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Изменение 24ч</p>
-                  <p className="text-lg font-mono text-terminal-red">-1.23%</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Объём 24ч</p>
-                  <p className="text-lg font-mono text-white">125.5M</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">RSI</p>
-                  <p className="text-lg font-mono text-terminal-green">64.2</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="lg:col-span-2">
+            <TradingChart 
+              symbol={selectedSymbol}
+              exchange={selectedExchange}
+              onTimeframeChange={setSelectedTimeframe}
+            />
+          </div>
 
           {/* Search and Watchlist */}
           <div className="space-y-6">
@@ -169,7 +123,14 @@ const Index = () => {
                     className="pl-10 bg-terminal-bg border-terminal-border text-white"
                   />
                 </div>
-                <Button className="w-full mt-3 bg-terminal-green hover:bg-terminal-green/80 text-terminal-bg">
+                <Button 
+                  className="w-full mt-3 bg-terminal-green hover:bg-terminal-green/80 text-terminal-bg"
+                  onClick={() => {
+                    if (searchToken.trim()) {
+                      setSelectedSymbol(searchToken.toUpperCase().replace('/', '') + '/USDT');
+                    }
+                  }}
+                >
                   Найти токен
                 </Button>
               </CardContent>
@@ -186,7 +147,11 @@ const Index = () => {
               <CardContent>
                 <div className="space-y-3">
                   {watchlistTokens.map((token) => (
-                    <div key={token.symbol} className="flex items-center justify-between p-2 rounded bg-terminal-bg border border-terminal-border hover:border-terminal-green transition-colors cursor-pointer">
+                    <div 
+                      key={token.symbol} 
+                      className="flex items-center justify-between p-2 rounded bg-terminal-bg border border-terminal-border hover:border-terminal-green transition-colors cursor-pointer"
+                      onClick={() => setSelectedSymbol(`${token.symbol}/USDT`)}
+                    >
                       <div>
                         <p className="font-semibold text-white">{token.symbol}</p>
                         <p className="text-sm font-mono text-gray-400">${formatPrice(token.price)}</p>
