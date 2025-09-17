@@ -9,6 +9,11 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Force dark mode for terminal theme
+if (typeof document !== 'undefined') {
+  document.documentElement.classList.add('dark');
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
