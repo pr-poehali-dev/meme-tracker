@@ -1,28 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Icon from '@/components/ui/icon';
 import TradingChart from '@/components/TradingChart';
-import LiveDataIndicator from '@/components/LiveDataIndicator';
-import { useMEXCWebSocket, useBitgetWebSocket } from '@/hooks/useWebSocket';
 
 const Index = () => {
   const [selectedExchange, setSelectedExchange] = useState('MEXC');
-  const [selectedTimeframe, setSelectedTimeframe] = useState('1h');
-  const [searchToken, setSearchToken] = useState('');
   const [selectedSymbol, setSelectedSymbol] = useState('DOGE/USDT');
-  const [liveData, setLiveData] = useState<any>(null);
-
-  // WebSocket connections
-  const mexcWs = useMEXCWebSocket('DOGEUSDT');
-  const bitgetWs = useBitgetWebSocket('DOGEUSDT');
-  
-  const currentWs = selectedExchange === 'MEXC' ? mexcWs : bitgetWs;
+  const [searchToken, setSearchToken] = useState('');
 
   // Mock data for demonstration
   const watchlistTokens = [
@@ -84,12 +73,12 @@ const Index = () => {
                 <SelectItem value="Bitget">Bitget</SelectItem>
               </SelectContent>
             </Select>
-            <LiveDataIndicator
-              isConnected={currentWs.isConnected}
-              exchange={selectedExchange}
-              data={currentWs.data}
-              error={currentWs.error}
-            />
+            <Badge variant="outline" className="border-terminal-green text-terminal-green">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-terminal-green animate-pulse" />
+                <span>{selectedExchange} Live</span>
+              </div>
+            </Badge>
           </div>
         </div>
       </header>
@@ -102,7 +91,6 @@ const Index = () => {
             <TradingChart 
               symbol={selectedSymbol}
               exchange={selectedExchange}
-              onTimeframeChange={setSelectedTimeframe}
             />
           </div>
 
@@ -195,7 +183,11 @@ const Index = () => {
                   </TableHeader>
                   <TableBody>
                     {marketTokens.map((token) => (
-                      <TableRow key={token.symbol} className="border-terminal-border hover:bg-terminal-bg/50 cursor-pointer">
+                      <TableRow 
+                        key={token.symbol} 
+                        className="border-terminal-border hover:bg-terminal-bg/50 cursor-pointer"
+                        onClick={() => setSelectedSymbol(`${token.symbol}/USDT`)}
+                      >
                         <TableCell className="font-semibold text-white">{token.symbol}</TableCell>
                         <TableCell className="font-mono text-white">${formatPrice(token.price)}</TableCell>
                         <TableCell className="text-gray-300">{token.volume}</TableCell>
